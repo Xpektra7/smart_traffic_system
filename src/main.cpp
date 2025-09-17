@@ -25,7 +25,7 @@ struct UltrasonicState {
   int speedCount = 0;
 };
 
-void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int trigPin, int echoPin) {
+void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long readDuration, int trigPin, int echoPin) {
   const int debounceCount = 2;
   const float riseThreshold = 10;
   const unsigned long pauseDuration = 10000;
@@ -66,7 +66,8 @@ void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int tr
       state.triggerDistance = state.peakDistance - 150;
     }
 
-    Serial.print("Distance: "); Serial.print(avg);
+    Serial.print(name); 
+    Serial.print(" => Distance: "); Serial.print(avg);
     Serial.print("  Count: "); Serial.println(state.vehicleCount);
 
     if (avg < state.triggerDistance && !state.carPresence) {
@@ -76,7 +77,7 @@ void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int tr
         state.entryCounter = 0;
         state.entryDistance = avg;
         state.entryTime = now;
-        Serial.println("Car entered");
+        Serial.print(name); Serial.println(" => Car entered");
       }
     } else state.entryCounter = 0;
 
@@ -93,7 +94,7 @@ void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int tr
         }
         state.vehicleCount++;
         state.exitCounter = 0;
-        Serial.println("Car left");
+        Serial.print(name); Serial.println(" => Car left");
       }
     } else state.exitCounter = 0;
 
@@ -102,9 +103,10 @@ void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int tr
     if (now - state.cycleStart >= readDuration) {
       float avgSpeed = (state.speedCount > 0) ? state.totalSpeed / state.speedCount : 0;
       float flow = state.vehicleCount / (readDuration / 1000.0);
-      Serial.print("Final count: "); Serial.println(state.vehicleCount);
-      Serial.print("Average speed (m/s): "); Serial.println(avgSpeed);
-      Serial.print("Flow (cars/s): "); Serial.println(flow);
+
+      Serial.print(name); Serial.print(" => Final count: "); Serial.println(state.vehicleCount);
+      Serial.print(name); Serial.print(" => Average speed (m/s): "); Serial.println(avgSpeed);
+      Serial.print(name); Serial.print(" => Flow (cars/s): "); Serial.println(flow);
 
       state.vehicleCount = 0;
       state.totalSpeed = 0;
@@ -124,13 +126,16 @@ void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int tr
 }
 
 // usage
-UltrasonicState sensor1, sensor2;
+UltrasonicState sensor1;
+UltrasonicState sensor2;
+UltrasonicState sensor3;
 
 void setup() {
   Serial.begin(115200);
 }
 
 void loop() {
-  UltrasonicSensor(sensor1, 30000, 5, 32);
-  UltrasonicSensor(sensor2, 30000, 23, 18);
+  UltrasonicSensor("U1", sensor1, 30000, 5, 32);
+  UltrasonicSensor("U2", sensor2, 30000, 23, 18);
+  UltrasonicSensor("U3", sensor3, 30000, 27, 34);
 }
