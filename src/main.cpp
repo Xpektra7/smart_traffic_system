@@ -1,145 +1,136 @@
 #include <Arduino.h>
 
-void UltrasonicSensor(unsigned long readDuration, int trigPin, int echoPin) {
-  // --- persistent state (static ensures memory survives across calls) ---
-  static bool initialized = false;
-  static bool carPresence = false;
-  static int vehicleCount = 0;
+struct UltrasonicState {
+  bool initialized = false;
+  bool carPresence = false;
+  int vehicleCount = 0;
 
-  const int numReadings = 3;
-  static float readings[numReadings];
-  static int readIndex = 0;
+  static const int numReadings = 3;
+  float readings[numReadings] = {0};
+  int readIndex = 0;
 
+  int entryCounter = 0;
+  int exitCounter = 0;
+
+  float peakDistance = 0;
+  float triggerDistance = -150;
+  float lastDistance = 0;
+
+  unsigned long cycleStart = 0;
+  bool readingPhase = true;
+
+  float entryDistance = 0;
+  unsigned long entryTime = 0;
+  float totalSpeed = 0;
+  int speedCount = 0;
+};
+
+void UltrasonicSensor(UltrasonicState &state, unsigned long readDuration, int trigPin, int echoPin) {
   const int debounceCount = 2;
-  static int entryCounter = 0;
-  static int exitCounter = 0;
-
-  static float peakDistance = 0;
-  static float triggerDistance = -150;
-  static float lastDistance = 0;
   const float riseThreshold = 10;
+  const unsigned long pauseDuration = 10000;
 
-  static unsigned long cycleStart = 0;
-  const unsigned long pauseDuration = 10000; // 10s
-  static bool readingPhase = true;
-
-  // speed tracking
-  static float entryDistance = 0;
-  static unsigned long entryTime = 0;
-  static float totalSpeed = 0;
-  static int speedCount = 0;
-
-  // one-time init
-  if (!initialized) {
+  if (!state.initialized) {
     pinMode(trigPin, OUTPUT);
     pinMode(echoPin, INPUT);
-    for (int i = 0; i < numReadings; i++) readings[i] = 0;
-    cycleStart = millis();
-    initialized = true;
+    state.cycleStart = millis();
+    state.initialized = true;
   }
 
-  // --- helper lambdas ---
   auto getDistance = [&]() {
     digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
     digitalWrite(trigPin, HIGH);
     delayMicroseconds(10);
     digitalWrite(trigPin, LOW);
-
-    long duration = pulseIn(echoPin, HIGH, 30000); // 30ms timeout
-    float distance = (duration * 0.0343) / 2;
-    if (distance > 550 || distance <= 0) distance = 550;
-    return distance;
+    long duration = pulseIn(echoPin, HIGH, 30000);
+    float d = (duration * 0.0343) / 2;
+    return (d > 550 || d <= 0) ? 550 : d;
   };
 
   auto getAverageDistance = [&]() {
-    readings[readIndex] = getDistance();
-    readIndex = (readIndex + 1) % numReadings;
-
+    state.readings[state.readIndex] = getDistance();
+    state.readIndex = (state.readIndex + 1) % UltrasonicState::numReadings;
     float sum = 0;
-    for (int i = 0; i < numReadings; i++) sum += readings[i];
-    return sum / numReadings;
+    for (int i = 0; i < UltrasonicState::numReadings; i++) sum += state.readings[i];
+    return sum / UltrasonicState::numReadings;
   };
 
-  // --- main logic ---
   unsigned long now = millis();
 
-  if (readingPhase) {
-    float avgDistance = getAverageDistance();
+  if (state.readingPhase) {
+    float avg = getAverageDistance();
 
-    if (avgDistance > peakDistance) {
-      peakDistance = avgDistance;
-      triggerDistance = peakDistance - 150;
+    if (avg > state.peakDistance) {
+      state.peakDistance = avg;
+      state.triggerDistance = state.peakDistance - 150;
     }
 
-    Serial.print("Distance: "); Serial.print(avgDistance);
-    Serial.print("  Count: "); Serial.println(vehicleCount);
+    Serial.print("Distance: "); Serial.print(avg);
+    Serial.print("  Count: "); Serial.println(state.vehicleCount);
 
-    // entry
-    if (avgDistance < triggerDistance && !carPresence) {
-      entryCounter++;
-      if (entryCounter >= debounceCount) {
-        carPresence = true;
-        entryCounter = 0;
-        entryDistance = avgDistance;
-        entryTime = now;
+    if (avg < state.triggerDistance && !state.carPresence) {
+      state.entryCounter++;
+      if (state.entryCounter >= debounceCount) {
+        state.carPresence = true;
+        state.entryCounter = 0;
+        state.entryDistance = avg;
+        state.entryTime = now;
         Serial.println("Car entered");
       }
-    } else entryCounter = 0;
+    } else state.entryCounter = 0;
 
-    // exit
-    if (carPresence && avgDistance > lastDistance + riseThreshold) {
-      exitCounter++;
-      if (exitCounter >= debounceCount) {
-        carPresence = false;
-        float travelDistance = avgDistance - entryDistance; // cm
-        float travelTime = (now - entryTime) / 1000.0;      // s
+    if (state.carPresence && avg > state.lastDistance + riseThreshold) {
+      state.exitCounter++;
+      if (state.exitCounter >= debounceCount) {
+        state.carPresence = false;
+        float travelDistance = avg - state.entryDistance;
+        float travelTime = (now - state.entryTime) / 1000.0;
         if (travelTime > 0) {
-          float speed = (travelDistance / 100.0) / travelTime; // m/s
-          totalSpeed += speed;
-          speedCount++;
+          float speed = (travelDistance / 100.0) / travelTime;
+          state.totalSpeed += speed;
+          state.speedCount++;
         }
-        vehicleCount++;
-        exitCounter = 0;
+        state.vehicleCount++;
+        state.exitCounter = 0;
         Serial.println("Car left");
       }
-    } else exitCounter = 0;
+    } else state.exitCounter = 0;
 
-    lastDistance = avgDistance;
+    state.lastDistance = avg;
 
-    // end of window
-    if (now - cycleStart >= readDuration) {
-      float avgSpeed = (speedCount > 0) ? totalSpeed / speedCount : 0;
-      float flow = vehicleCount / (readDuration / 1000.0);
-
-      Serial.print("Final count: "); Serial.println(vehicleCount);
+    if (now - state.cycleStart >= readDuration) {
+      float avgSpeed = (state.speedCount > 0) ? state.totalSpeed / state.speedCount : 0;
+      float flow = state.vehicleCount / (readDuration / 1000.0);
+      Serial.print("Final count: "); Serial.println(state.vehicleCount);
       Serial.print("Average speed (m/s): "); Serial.println(avgSpeed);
       Serial.print("Flow (cars/s): "); Serial.println(flow);
 
-      // reset
-      vehicleCount = 0;
-      totalSpeed = 0;
-      speedCount = 0;
-      readingPhase = false;
-      cycleStart = now;
+      state.vehicleCount = 0;
+      state.totalSpeed = 0;
+      state.speedCount = 0;
+      state.readingPhase = false;
+      state.cycleStart = now;
     }
 
-  } else { // pause
-    if (now - cycleStart >= pauseDuration) {
-      readingPhase = true;
-      cycleStart = now;
+  } else {
+    if (now - state.cycleStart >= pauseDuration) {
+      state.readingPhase = true;
+      state.cycleStart = now;
     }
   }
 
-  delay(100); // maintain sample rate
+  delay(100);
 }
 
-// --- usage ---
+// usage
+UltrasonicState sensor1, sensor2;
+
 void setup() {
   Serial.begin(115200);
 }
 
 void loop() {
-  UltrasonicSensor(30000, 5, 32); // run 30s windows
-  // you can add delay here if you want slower polling
+  UltrasonicSensor(sensor1, 30000, 5, 32);
+  UltrasonicSensor(sensor2, 30000, 23, 18);
 }
