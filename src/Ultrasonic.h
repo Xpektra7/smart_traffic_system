@@ -24,6 +24,8 @@ struct UltrasonicState {
   unsigned long entryTime = 0;
   float totalSpeed = 0;
   int speedCount = 0;
+
+  unsigned long lastSample = 0;
 };
 
 void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long readDuration, int trigPin, int echoPin);

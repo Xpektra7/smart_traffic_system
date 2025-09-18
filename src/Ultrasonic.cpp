@@ -4,13 +4,11 @@ void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long re
   const int debounceCount = 2;
   const float riseThreshold = 10;
   const unsigned long pauseDuration = 10000;
-  const unsigned long sampleInterval = 100; // ~100ms per ultrasonic ping
 
   if (!state.initialized) {
     pinMode(trigPin, OUTPUT);
     pinMode(echoPin, INPUT);
     state.cycleStart = millis();
-    state.lastSample = 0;
     state.initialized = true;
   }
 
@@ -34,10 +32,6 @@ void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long re
   };
 
   unsigned long now = millis();
-
-  // ---- only sample every 100ms ----
-  if (now - state.lastSample < sampleInterval) return;
-  state.lastSample = now;
 
   if (state.readingPhase) {
     float avg = getAverageDistance();
@@ -92,4 +86,6 @@ void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long re
     state.readingPhase = true;
     state.cycleStart = now;
   }
+
+  delay(100);
 }
