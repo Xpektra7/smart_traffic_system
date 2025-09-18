@@ -3,7 +3,7 @@
 void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long readDuration, int trigPin, int echoPin) {
   const int debounceCount = 2;
   const float riseThreshold = 10;
-  const unsigned long pauseDuration = 10000;
+  const unsigned long pauseDuration = 0;
 
   if (!state.initialized) {
     pinMode(trigPin, OUTPUT);
