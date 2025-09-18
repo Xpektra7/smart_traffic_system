@@ -9,7 +9,8 @@ const int C_R = 19, C_Y = 25, C_G = 26;
 LaneStats laneA, laneB, laneC;
 UltrasonicState sensor1, sensor2, sensor3;
 
-void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, unsigned long ov, int &currentStep, unsigned long &prevMillis,
+void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, unsigned long ov, 
+                       int &currentStep, unsigned long &prevMillis,
                        unsigned long &greenA, unsigned long &greenB, unsigned long &greenC,
                        float Kp, float s_target, float deltamax,
                        unsigned long minGreen, unsigned long maxGreen) {
@@ -19,52 +20,64 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
   if (now - prevMillis >= durations[currentStep]) {
     prevMillis = now;
 
-    // End-of-phase updates
+    // Collect stats at end of each green, but don't adjust yet
     if (currentStep == 0) {
       laneA.count = sensor1.vehicleCount;
       laneA.flow = sensor1.vehicleCount / (float)greenA;
       laneA.avgSpeed = (sensor1.speedCount > 0) ? sensor1.totalSpeed / sensor1.speedCount : 0;
       laneA.update(laneA.flow, laneA.avgSpeed);
-
-      unsigned long oldGreen = greenA;
-      greenA = adjustGreen(greenA, laneA.flow, laneA.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
-
-      Serial.print("Lane A | Count: "); Serial.print(laneA.count);
-      Serial.print(" | Flow: "); Serial.print(laneA.flow, 2);
-      Serial.print(" | AvgSpeed: "); Serial.print(laneA.avgSpeed, 2);
-      Serial.print(" | Green: "); Serial.print(oldGreen);
-      Serial.print("s -> "); Serial.print(greenA); Serial.println("s");
     }
     if (currentStep == 2) {
       laneB.count = sensor2.vehicleCount;
       laneB.flow = sensor2.vehicleCount / (float)greenB;
       laneB.avgSpeed = (sensor2.speedCount > 0) ? sensor2.totalSpeed / sensor2.speedCount : 0;
       laneB.update(laneB.flow, laneB.avgSpeed);
-
-      unsigned long oldGreen = greenB;
-      greenB = adjustGreen(greenB, laneB.flow, laneB.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
-
-      Serial.print("Lane B | Count: "); Serial.print(laneB.count);
-      Serial.print(" | Flow: "); Serial.print(laneB.flow, 2);
-      Serial.print(" | AvgSpeed: "); Serial.print(laneB.avgSpeed, 2);
-      Serial.print(" | Green: "); Serial.print(oldGreen);
-      Serial.print("s -> "); Serial.print(greenB); Serial.println("s");
     }
     if (currentStep == 4) {
       laneC.count = sensor3.vehicleCount;
       laneC.flow = sensor3.vehicleCount / (float)greenC;
       laneC.avgSpeed = (sensor3.speedCount > 0) ? sensor3.totalSpeed / sensor3.speedCount : 0;
       laneC.update(laneC.flow, laneC.avgSpeed);
-
-      unsigned long oldGreen = greenC;
-      greenC = adjustGreen(greenC, laneC.flow, laneC.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
-
-      Serial.print("Lane C | Count: "); Serial.print(laneC.count);
-      Serial.print(" | Flow: "); Serial.print(laneC.flow, 2);
-      Serial.print(" | AvgSpeed: "); Serial.print(laneC.avgSpeed, 2);
-      Serial.print(" | Green: "); Serial.print(oldGreen);
-      Serial.print("s -> "); Serial.print(greenC); Serial.println("s");
     }
+
+    // End of cycle: after step 5 → about to loop back to 0
+if (currentStep == 5) {
+  unsigned long oldA = greenA, oldB = greenB, oldC = greenC;
+
+  // --- Step 1: compute demand scores for each lane ---
+  // You can use flow, count, or flow/speed ratio depending on what feels stable.
+  float demandA = laneA.flow;
+  float demandB = laneB.flow;
+  float demandC = laneC.flow;
+
+  float totalDemand = demandA + demandB + demandC;
+  if (totalDemand < 0.001) totalDemand = 0.001; // avoid divide by zero
+
+  // --- Step 2: compute available green budget ---
+  unsigned long overlapTotal = ov * 3; // since we have 3 overlaps (A→B, B→C, C→A)
+  unsigned long greenBudget = (90 - overlapTotal); // fixed 90s cycle
+
+  // --- Step 3: distribute proportionally ---
+  greenA = constrain((unsigned long)(greenBudget * (demandA / totalDemand)), minGreen, maxGreen);
+  greenB = constrain((unsigned long)(greenBudget * (demandB / totalDemand)), minGreen, maxGreen);
+  greenC = constrain((unsigned long)(greenBudget * (demandC / totalDemand)), minGreen, maxGreen);
+
+  // --- Step 4: logging ---
+  Serial.println("=== End of Cycle (Fixed 90s) Redistribution ===");
+  Serial.print("Lane A | Avg Speed "); Serial.print(laneA.avgSpeed);
+  Serial.print(" | Flow "); Serial.print(demandA, 2);
+  Serial.print(" | Green: "); Serial.print(oldA); Serial.print("s -> "); Serial.print(greenA); Serial.println("s");
+
+  Serial.print("Lane B | Avg Speed "); Serial.print(laneB.avgSpeed);
+  Serial.print(" | Flow "); Serial.print(demandB, 2);
+  Serial.print(" | Green: "); Serial.print(oldB); Serial.print("s -> "); Serial.print(greenB); Serial.println("s");
+
+  Serial.print("Lane C | Avg Speed "); Serial.print(laneC.avgSpeed);
+  Serial.print(" | Flow "); Serial.print(demandC, 2);
+  Serial.print(" | Green: "); Serial.print(oldC); Serial.print("s -> "); Serial.print(greenC); Serial.println("s");
+
+  Serial.println("===============================================");
+}
 
     currentStep = (currentStep + 1) % 6;
   }
@@ -83,4 +96,5 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
     case 4: digitalWrite(C_G,HIGH); digitalWrite(A_R,HIGH); digitalWrite(B_R,HIGH); break;
     case 5: digitalWrite(C_Y,HIGH); digitalWrite(A_Y,HIGH); digitalWrite(B_R,HIGH); break;
   }
+
 }
