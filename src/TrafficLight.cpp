@@ -25,21 +25,45 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
       laneA.flow = sensor1.vehicleCount / (float)greenA;
       laneA.avgSpeed = (sensor1.speedCount > 0) ? sensor1.totalSpeed / sensor1.speedCount : 0;
       laneA.update(laneA.flow, laneA.avgSpeed);
+
+      unsigned long oldGreen = greenA;
       greenA = adjustGreen(greenA, laneA.flow, laneA.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
+
+      Serial.print("Lane A | Count: "); Serial.print(laneA.count);
+      Serial.print(" | Flow: "); Serial.print(laneA.flow, 2);
+      Serial.print(" | AvgSpeed: "); Serial.print(laneA.avgSpeed, 2);
+      Serial.print(" | Green: "); Serial.print(oldGreen);
+      Serial.print("s -> "); Serial.print(greenA); Serial.println("s");
     }
     if (currentStep == 2) {
       laneB.count = sensor2.vehicleCount;
       laneB.flow = sensor2.vehicleCount / (float)greenB;
       laneB.avgSpeed = (sensor2.speedCount > 0) ? sensor2.totalSpeed / sensor2.speedCount : 0;
       laneB.update(laneB.flow, laneB.avgSpeed);
+
+      unsigned long oldGreen = greenB;
       greenB = adjustGreen(greenB, laneB.flow, laneB.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
+
+      Serial.print("Lane B | Count: "); Serial.print(laneB.count);
+      Serial.print(" | Flow: "); Serial.print(laneB.flow, 2);
+      Serial.print(" | AvgSpeed: "); Serial.print(laneB.avgSpeed, 2);
+      Serial.print(" | Green: "); Serial.print(oldGreen);
+      Serial.print("s -> "); Serial.print(greenB); Serial.println("s");
     }
     if (currentStep == 4) {
       laneC.count = sensor3.vehicleCount;
       laneC.flow = sensor3.vehicleCount / (float)greenC;
       laneC.avgSpeed = (sensor3.speedCount > 0) ? sensor3.totalSpeed / sensor3.speedCount : 0;
       laneC.update(laneC.flow, laneC.avgSpeed);
+
+      unsigned long oldGreen = greenC;
       greenC = adjustGreen(greenC, laneC.flow, laneC.avgSpeed, Kp, s_target, deltamax, minGreen, maxGreen);
+
+      Serial.print("Lane C | Count: "); Serial.print(laneC.count);
+      Serial.print(" | Flow: "); Serial.print(laneC.flow, 2);
+      Serial.print(" | AvgSpeed: "); Serial.print(laneC.avgSpeed, 2);
+      Serial.print(" | Green: "); Serial.print(oldGreen);
+      Serial.print("s -> "); Serial.print(greenC); Serial.println("s");
     }
 
     currentStep = (currentStep + 1) % 6;
