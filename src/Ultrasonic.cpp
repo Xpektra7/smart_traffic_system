@@ -64,6 +64,7 @@ void UltrasonicSensor(const char* name, UltrasonicState &state, unsigned long re
         float travelTime = (now - state.entryTime) / 1000.0;
         if (travelTime > 0) {
           float speed = (travelDistance / 100.0) / travelTime;
+          if (speed < 0) speed = 0.01;
           state.totalSpeed += speed;
           state.speedCount++;
         }
