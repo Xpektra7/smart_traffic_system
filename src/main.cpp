@@ -5,7 +5,18 @@ struct LaneStats {
   int count;
   float flow;
   float avgSpeed;
+
+  // For smoothing
+  float flowEMA = 0;
+  float speedEMA = 0;
+  const float alpha = 0.3; // smoothing factor (0<alpha≤1)
+
+  void update(float newFlow, float newSpeed) {
+    flowEMA  = alpha * newFlow  + (1 - alpha) * flowEMA;
+    speedEMA = alpha * newSpeed + (1 - alpha) * speedEMA;
+  }
 };
+
 LaneStats laneA, laneB, laneC;
 
 // --- Ultrasonic states ---
@@ -57,18 +68,21 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
       laneA.count = sensor1.vehicleCount;
       laneA.flow = sensor1.vehicleCount / (float)greenA;
       laneA.avgSpeed = (sensor1.speedCount > 0) ? sensor1.totalSpeed / sensor1.speedCount : 0;
+      laneA.update(laneA.flow, laneA.avgSpeed);
       greenA = adjustGreen(greenA, laneA.flow, laneA.avgSpeed);
     }
     if (currentStep == 2) { // B green ended
       laneB.count = sensor2.vehicleCount;
       laneB.flow = sensor2.vehicleCount / (float)greenB;
       laneB.avgSpeed = (sensor2.speedCount > 0) ? sensor2.totalSpeed / sensor2.speedCount : 0;
+      laneB.update(laneB.flow, laneB.avgSpeed);
       greenB = adjustGreen(greenB, laneB.flow, laneB.avgSpeed);
     }
     if (currentStep == 4) { // C green ended
       laneC.count = sensor3.vehicleCount;
       laneC.flow = sensor3.vehicleCount / (float)greenC;
       laneC.avgSpeed = (sensor3.speedCount > 0) ? sensor3.totalSpeed / sensor3.speedCount : 0;
+      laneC.update(laneC.flow, laneC.avgSpeed);
       greenC = adjustGreen(greenC, laneC.flow, laneC.avgSpeed);
     }
 
