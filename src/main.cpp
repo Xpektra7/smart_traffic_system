@@ -12,7 +12,7 @@ unsigned long overlap = 5;
 const float Kp = 20; 
 const float s_target = 0.05; //0.2+ for real-life
 const float deltamax = 5;
-const unsigned long minGreen = 10, maxGreen = 90; // 20 , 60 for real life
+const unsigned long minGreen = 5, maxGreen = 60; // 20 , 60 for real life
 
 void setup() {
   Serial.begin(115200);
