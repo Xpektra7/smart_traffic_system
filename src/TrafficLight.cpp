@@ -15,13 +15,21 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
                        float Kp, float s_target, float deltamax,
                        unsigned long minGreen, unsigned long maxGreen) {
   unsigned long now = millis();
-  unsigned long durations[6] = {gA * 1000, ov * 1000, gB * 1000, ov * 1000, gC * 1000, ov * 1000};
+unsigned long stepDuration = 0;
+  switch (currentStep) {
+    case 0: stepDuration = greenA * 1000; break; // Lane A green
+    case 1: stepDuration = ov * 1000;     break; // A->B overlap
+    case 2: stepDuration = greenB * 1000; break; // Lane B green
+    case 3: stepDuration = ov * 1000;     break; // B->C overlap
+    case 4: stepDuration = greenC * 1000; break; // Lane C green
+    case 5: stepDuration = ov * 1000;     break; // C->A overlap
+  }
 
   // --- EMA memory (persist between calls) ---
   static bool emaInit = false;
   static float emaA, emaB, emaC;
 
-  if (now - prevMillis >= durations[currentStep]) {
+  if (now - prevMillis >= stepDuration) {
     prevMillis = now;
 
     // Collect stats at end of each green
