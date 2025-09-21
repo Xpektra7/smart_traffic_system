@@ -23,6 +23,10 @@ struct LaneStats {
   }
 };
 
+// TrafficLight.h
+extern bool allRedLatched;
+
+
 extern LaneStats laneA, laneB, laneC;
 extern UltrasonicState sensor1, sensor2, sensor3;
 
@@ -31,3 +35,4 @@ void trafficController(unsigned long gA, unsigned long gB, unsigned long gC, uns
                        unsigned long &greenA, unsigned long &greenB, unsigned long &greenC,
                        float Kp, float s_target, float deltamax,
                        unsigned long minGreen, unsigned long maxGreen);
+void allRed();

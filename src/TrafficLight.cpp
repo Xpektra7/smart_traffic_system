@@ -1,10 +1,11 @@
 #include "TrafficLight.h"
+#include "interface.h"
 
 // Pin definitions
 const int A_R = 12, A_Y = 13, A_G = 14;
 const int B_R = 15, B_Y = 21, B_G = 22;
 const int C_R = 19, C_Y = 25, C_G = 26;
-
+bool allRedLatched = false;
 // Lane stats and sensors
 LaneStats laneA, laneB, laneC;
 UltrasonicState sensor1, sensor2, sensor3;
@@ -38,6 +39,7 @@ unsigned long stepDuration = 0;
       laneA.flow = sensor1.vehicleCount / (float)greenA;
       laneA.avgSpeed = (sensor1.speedCount > 0) ? sensor1.totalSpeed / sensor1.speedCount : 0;
       laneA.update(laneA.flow, laneA.avgSpeed);
+
     }
     if (currentStep == 2) {
       laneB.count = sensor2.vehicleCount;
@@ -146,6 +148,11 @@ unsigned long stepDuration = 0;
   digitalWrite(B_R, LOW); digitalWrite(B_Y, LOW); digitalWrite(B_G, LOW);
   digitalWrite(C_R, LOW); digitalWrite(C_Y, LOW); digitalWrite(C_G, LOW);
 
+  updateLaneData('A', laneA.count, laneA.flow, laneA.avgSpeed);
+  updateLaneData('B', laneB.count, laneB.flow, laneB.avgSpeed);
+  updateLaneData('C', laneC.count, laneC.flow, laneC.avgSpeed);
+
+
   // Apply current step
   switch(currentStep) {
     case 0: digitalWrite(A_G,HIGH); digitalWrite(B_R,HIGH); digitalWrite(C_R,HIGH); break;
@@ -154,5 +161,25 @@ unsigned long stepDuration = 0;
     case 3: digitalWrite(B_Y,HIGH); digitalWrite(C_Y,HIGH); digitalWrite(A_R,HIGH); break;
     case 4: digitalWrite(C_G,HIGH); digitalWrite(A_R,HIGH); digitalWrite(B_R,HIGH); break;
     case 5: digitalWrite(C_Y,HIGH); digitalWrite(A_Y,HIGH); digitalWrite(B_R,HIGH); break;
+  }
+}
+
+
+void allRed() {
+  allRedLatched = !allRedLatched;  // toggle latch
+    if (allRedLatched) {
+
+    // turn off all greens and yellows, turn on all reds
+    digitalWrite(A_R, HIGH);
+    digitalWrite(A_Y, LOW);
+    digitalWrite(A_G, LOW);
+
+    digitalWrite(B_R, HIGH);
+    digitalWrite(B_Y, LOW);
+    digitalWrite(B_G, LOW);
+
+    digitalWrite(C_R, HIGH);
+    digitalWrite(C_Y, LOW);
+    digitalWrite(C_G, LOW);
   }
 }
